@@ -1,0 +1,9 @@
+2437ef819e6c161fb9bfd173a9e50c19 *DESCRIPTION
+6ef14292afc1b3e9e31d671630e9e081 *NAMESPACE
+0b29c20d28a338a32407cebf3e49d4c7 *R/functions.R
+c9bbb4f8f1829c276c932f4f021ea22b *man/addTkBind.Rd
+6017bb09b34e344b023dfcdfb871635c *man/getCoef.Rd
+d236b98454eadb317da28ab65181fa20 *man/setVariable.Rd
+df3b5597a1b3c0dcce4c3a63aced204a *man/tkBinds.Rd
+1478f8c542d8bb70e5b1ffca4df1b709 *man/tkLocator.Rd
+9b1ea5b09cc1e2e0154fd9eab7c868e3 *man/tkRplot.Rd
