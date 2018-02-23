@@ -21,7 +21,7 @@ This function adds a new bind while keeping the previous defined binds.
 }
 \examples{
 \dontshow{
-
+if (.isTclImgOk()){
 tt <- tktoplevel()
 tt <- tkRplot(tt, function () plot(1:10))
 FUN <- local({
@@ -47,6 +47,7 @@ addTkBind(tt$env$canvas, "<Motion>", FUN1)
 tkbind(tt$env$canvas, "<Motion>") #to give current bidings
 Sys.sleep(1)
 tkdestroy(tt)
+}
 }
 \dontrun{
 

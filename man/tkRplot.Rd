@@ -24,6 +24,7 @@ Dispaly a plot in a Tk toplevel window.
 }
 \examples{
 \dontshow{
+ if (.isTclImgOk()){
  bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
@@ -75,6 +76,7 @@ tt <- tkRplot(tt, function() {
        fill = "both")
        Sys.sleep(1)
        tkdestroy(tt)
+       }
 }
 \dontrun{
 bb <- 1

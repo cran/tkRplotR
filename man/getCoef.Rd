@@ -18,7 +18,7 @@ Functions to convert coordinates.
 }
 \examples{
 \dontshow{
-
+if (.isTclImgOk()){
 bb <- 1
 tt <- tktoplevel()
 tt <- tkRplot(tt, function() {
@@ -92,6 +92,7 @@ canPosY <<- .Tcl(paste(tt$env$canvas, "create text ",xRange[2]+10, y,
      } )
      Sys.sleep(1)
      tkdestroy(tt)
+}
 }
 \dontrun{
 

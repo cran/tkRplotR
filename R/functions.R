@@ -6,6 +6,19 @@
 
 globalEnv <- new.env(parent = emptyenv())
 
+
+#' @export .isTclImgOk
+.isTclImgOk <- function(){
+if (as.numeric(R.version$minor) < 4 | as.character(tcltk::tcl("info", "tclversion")) <= "8.5"){
+  message("Please install 'Img' extension for tcltk\n tcltk::tclVersion('Img')")
+  return(FALSE)}
+  message(paste("tcltk", as.character(tcltk::tcl("info", "tclversion"))))
+  return(TRUE)
+}
+
+
+.isTclImgOk()
+
 if (!capabilities("png"))
   stop(message("Your R has no capability for png."))
 
@@ -29,6 +42,7 @@ if (!capabilities("tcltk"))
 #' @export
 #' @examples
 #' \dontshow{
+#' if (.isTclImgOk()){
 #' bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
@@ -86,7 +100,7 @@ if (!capabilities("tcltk"))
 #'  # tkBinds(parent = tt, expose = TRUE, configure = TRUE)
 #'  Sys.sleep(1)
 #'  tkdestroy(tt)
-#'
+#'}
 #' }
 #' \dontrun{
 #' bb <- 1
@@ -297,7 +311,7 @@ tkBinds <- local({
 #' @export
 #' @examples
 #' \dontshow{
-#'
+#' if (.isTclImgOk()){
 #' tt <- tktoplevel()
 #' tt <- tkRplot(tt, function () plot(1:10))
 #' FUN <- local({
@@ -323,6 +337,7 @@ tkBinds <- local({
 #' tkbind(tt$env$canvas, "<Motion>") #to give current bidings
 #' Sys.sleep(1)
 #' tkdestroy(tt)
+#' }
 #' }
 #' \dontrun{
 #'
@@ -455,6 +470,7 @@ getAllVariables <- function()
 #' @export
 #' @examples
 #' \dontshow{
+#'  if (.isTclImgOk()){
 #'  bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
@@ -506,6 +522,7 @@ getAllVariables <- function()
 #'        fill = "both")
 #'        Sys.sleep(1)
 #'        tkdestroy(tt)
+#'        }
 #' }
 #' \dontrun{
 #' bb <- 1
@@ -655,7 +672,7 @@ tkRreplot <- function(parent,
 #' @export
 #' @examples
 #' \dontshow{
-#'
+#' if (.isTclImgOk()){
 #' bb <- 1
 #' tt <- tktoplevel()
 #' tt <- tkRplot(tt, function() {
@@ -730,6 +747,7 @@ tkRreplot <- function(parent,
 #'      } )
 #'      Sys.sleep(1)
 #'      tkdestroy(tt)
+#' }
 #' }
 #' \dontrun{
 #'

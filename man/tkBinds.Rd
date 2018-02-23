@@ -21,6 +21,7 @@ This function adds the binds needed to automatically resize the graph
 }
 \examples{
 \dontshow{
+if (.isTclImgOk()){
 bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
@@ -78,7 +79,7 @@ tt <- tkRplot(tt, function() {
  # tkBinds(parent = tt, expose = TRUE, configure = TRUE)
  Sys.sleep(1)
  tkdestroy(tt)
-
+}
 }
 \dontrun{
 bb <- 1
