@@ -4,7 +4,7 @@
 \alias{addTkBind}
 \title{Add Tk Binds}
 \usage{
-addTkBind(win, event, fun)
+addTkBind(win, event, fun = NULL)
 }
 \arguments{
 \item{win}{window}

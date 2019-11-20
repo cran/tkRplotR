@@ -21,4 +21,6 @@ setVariable("var1", 1)
 exists("var1")
 getVariable("var1")
 
+getVariable("tkRplotRpngType")
+
 }

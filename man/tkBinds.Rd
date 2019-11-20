@@ -69,6 +69,7 @@ tt <- tkRplot(tt, function() {
 
        tkpack(s,
        side = "bottom",
+       before = tt$env$canvas,
        expand = FALSE,
        fill = "both")
 
@@ -129,6 +130,7 @@ tt <- tkRplot(tt, function() {
 
        tkpack(s,
        side = "bottom",
+       before = tt$env$canvas,
        expand = FALSE,
        fill = "both")
 

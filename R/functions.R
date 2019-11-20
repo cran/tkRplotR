@@ -1,29 +1,72 @@
 
 #' @import grDevices
 #' @import tcltk
-#' @importFrom graphics par
+#' @importFrom graphics par plot rect
+#'
+#'
+#' @export
+.tkRplotNewId <- local({
+  id <- 0
+  function() {
+    id <<- id + 1
+    return(id)
+  }
+})
 
-
-globalEnv <- new.env(parent = emptyenv())
-
+#' @export .is.string
+.is.string <- function(x)
+  is.character(x) && length(x) == 1
 
 #' @export .isTclImgOk
-.isTclImgOk <- function(){
-if (as.numeric(R.version$minor) < 4 | as.character(tcltk::tcl("info", "tclversion")) <= "8.5"){
-  message("Please install 'Img' extension for tcltk\n tcltk::tclVersion('Img')")
-  return(FALSE)}
-  message(paste("tcltk", as.character(tcltk::tcl("info", "tclversion"))))
+.isTclImgOk <- function() {
+  if (as.numeric(R.version$minor) < 4 |
+      as.character(tcltk::tcl("info", "tclversion")) <= "8.5") {
+    packageStartupMessage("Please install 'Img' extension for tcltk ", tcltk::tclVersion())
+    return(FALSE)
+  }
+  # packageStartupMessage(paste("tcltk", as.character(tcltk::tcl(
+  #   "info", "tclversion"
+  # ))))
   return(TRUE)
 }
 
+#' @export .tclFun1
+.tclFun1 <- function(f,
+                     name = deparse(substitute(f)),
+                     arg1 = names(formals(f))[1])
+{
+  name <- paste("R", make.names(name[1]), sep = "_")
+  res <- .Tcl.callback(f)
+  res <- strtrim(res, 16)
+  if (length(grep("R_call ", res) > 0)) {
+    .Tcl(paste(
+      "proc ",
+      name,
+      " {",
+      paste(arg1, collapse = " "),
+      "} {",
+      res,
+      " ",
+      paste0("$", arg1, collapse = " "),
+      "}",
+      sep = ""
+    ))
+  }
+  return(res)
+}
 
-.isTclImgOk()
+#' @export
+.getToplevelID <- function(win) {
+  if (is.tkwin(win)) {
+    win <- win$ID
+    }
+    return(paste0(".", strsplit(win, split = "\\.")[[1]][2]))
+}
 
-if (!capabilities("png"))
-  stop(message("Your R has no capability for png."))
-
-if (!capabilities("tcltk"))
-  stop(message("Your R has no capability for tcltk."))
+#' @export
+.getToplevel <- function(win) {
+  getVariable(.getToplevelID(win))
+}
 
 # getTime <- function() {
 #   #as.numeric(tclvalue(.Tcl("clock milliseconds")))
@@ -90,6 +133,7 @@ if (!capabilities("tcltk"))
 #'
 #'        tkpack(s,
 #'        side = "bottom",
+#'        before = tt$env$canvas,
 #'        expand = FALSE,
 #'        fill = "both")
 #'
@@ -150,6 +194,7 @@ if (!capabilities("tcltk"))
 #'
 #'        tkpack(s,
 #'        side = "bottom",
+#'        before = tt$env$canvas,
 #'        expand = FALSE,
 #'        fill = "both")
 #'
@@ -160,144 +205,80 @@ if (!capabilities("tcltk"))
 #'  # tkBinds(parent = tt, expose = TRUE, configure = TRUE)
 #' }
 ###### tkBinds #####
-tkBinds <- local({
-  n <- 0           # number of events
-  t0 <- NULL       # time0 (just before plot)
-  tDiff <-
-    200      # time between time0 and replot image in Tk canvas widget
-  function(parent,
-           expose = TRUE,
-           configure = TRUE) {
-    getTime <- function()
-      as.numeric(Sys.time()) * 1000
-
-    if (configure) {
-      tkbind(parent$env$canvas, "<Configure>", function() {
-        #print(tDiff)
-        if (is.null(t0))
-          t0 <<- getTime()
-        n <<- n + 1
-        width <-
-          as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
-        height <-
-          as.numeric(.Tcl(paste(
-            "winfo height", parent$env$canvas
-          )))
-        widthPrevious <- parent$env$width
-        heightPrevious <- parent$env$height
-        if (abs(widthPrevious - width) > 10 |
-            abs(heightPrevious  - height) > 10) {
-          if (n > 50 | (getTime() - t0) > tDiff) {
-            t0 <<-   getTime()
-            parent$env$height <- height
-            parent$env$width <- width
-            tkpack.forget(parent$env$canvas)
-            tkRreplot(parent)
-            n <<- 0
-            tkpack(parent$env$canvas,
-                   expand = 1,
-                   fill = "both")
-            tDiff <<- 10 * (getTime() - t0)
-
-            t0 <<- NULL
-          }
-        }
-      })
-    } else {
-      tkbind(parent$env$canvas, "<Configure>", "")
-    }
-    if (expose) {
-      tkbind(parent$env$canvas, "<Expose>", function() {
-        #print(tDiff)
-        if (is.null(t0))
-          t0 <<- getTime()
-        n <<- n + 1
-        width <-
-          as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
-        height <-
-          as.numeric(.Tcl(paste(
-            "winfo height", parent$env$canvas
-          )))
-        widthPrevious <- parent$env$width
-        heightPrevious <- parent$env$height
-        if (abs(widthPrevious - width) > 10 |
-            abs(heightPrevious  - height) > 10) {
-          if (n > 50 | (getTime() - t0) > tDiff) {
-            t0 <<-   getTime()
-            parent$env$height <-  height
-            parent$env$width <-  width
-            tkpack.forget(parent$env$canvas)
-            tkRreplot(parent)
-            n <<- 0
-            tkpack(parent$env$canvas,
-                   expand = 1,
-                   fill = "both")
-            tDiff <<- 10 * (getTime() - t0)
-
-            t0 <<- NULL
-          }
-        }
-      })
-    } else {
-      tkbind(parent$env$canvas, "<Expose>", "")
-    }
-
-    tkbind(parent, "<FocusIn>", function() {
+tkBinds <- function(parent,
+                    expose = TRUE,
+                    configure = TRUE) {
+  if (configure) {
+    tkbind(parent$env$canvas, "<Configure>", function() {
+      #print("Configure")
       width <-
         as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
       height <-
         as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
       widthPrevious <- parent$env$width
       heightPrevious <- parent$env$height
-      if ((abs(width - widthPrevious) > 0) |
-          (abs(height - heightPrevious) > 0))  {
-        parent$env$height <- height
-        parent$env$width <- width
-        tkpack.forget(parent$env$canvas)
-        tkRreplot(parent)
-        tkpack(parent$env$canvas,
-               expand = 1,
-               fill = "both")
+      if (any(isTRUE(widthPrevious!=width), isTRUE(heightPrevious!=height)))  {
+       #print("ConfigureDone")
+        .tkRreplot(parent)
       }
     })
+  } else {
+    tkbind(parent$env$canvas, "<Configure>", "")
+  }
 
-    tkbind(parent$env$canvas, "<Enter>", function(W) {
-      width <- as.numeric(.Tcl(paste("winfo width", W)))
-      height <- as.numeric(.Tcl(paste("winfo height", W)))
+  if (expose) {
+    tkbind(parent$env$canvas, "<Expose>", function() {
+      #print("Expose")
+      width <-
+        as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+      height <-
+        as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
       widthPrevious <- parent$env$width
       heightPrevious <- parent$env$height
-      if (abs(width - widthPrevious) > 0 |
-          abs(height - heightPrevious) > 0) {
-        parent$env$height <- height
-        parent$env$width <- width
-        tkpack.forget(W)
-        tkRreplot(parent)
-        tkpack(W, expand = 1, fill = "both")
+      if (any(isTRUE(widthPrevious!=width), isTRUE(heightPrevious!=height)))  {
+       # print("ExposeDone")
+        .tkRreplot(parent)
       }
-      setVariable("tkRplotRcanvasWidth", width)
-      setVariable("tkRplotRcanvasHeight", height)
-      setVariable("usr" , parent$env$usr)
-      setVariable("plt" , parent$env$plt)
-      parent$env$canvas$coef <- getCoef()
-
     })
-
-    # tkbind(parent, "<Leave>", function() {
-    #   width <- as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
-    #   height <- as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
-    #   widthPrevious <- parent$env$width
-    #   heightPrevious <- parent$env$height
-    #   if (abs(width - widthPrevious) > 0 | abs(height - heightPrevious) > 0) {
-    #     parent$env$height <- height
-    #     parent$env$width <- width
-    #     tkpack.forget(parent$env$canvas)
-    #     tkRreplot(parent)
-    #     tkpack(parent$env$canvas, expand = 1, fill = "both")
-    #   }
-    # })
-    #
+  } else {
+    tkbind(parent$env$canvas, "<Expose>", "")
   }
-})
+
+  tkbind(parent, "<FocusIn>", function() {
+    #print("FocusIn")
+    width <-
+      as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+    height <-
+      as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
+    widthPrevious <- parent$env$width
+    heightPrevious <- parent$env$height
+    if (any(isTRUE(widthPrevious!=width), isTRUE(heightPrevious!=height)))  {
+    #  print("FocusInDone")
+      tkRreplot(parent)
+    }
+  })
+
+  tkbind(parent$env$canvas, "<Enter>", function(W) {
+    setVariable("tkRplotRcurrentToplevel", W)
+    #print("enter in canvas")
+    width <- as.numeric(.Tcl(paste("winfo width", W)))
+    height <- as.numeric(.Tcl(paste("winfo height", W)))
+    widthPrevious <- parent$env$width
+    heightPrevious <- parent$env$height
+    if (any(isTRUE(widthPrevious!=width), isTRUE(heightPrevious!=height)))  {
+     # print("enter in canvas")
+      tkRreplot(parent)
+    }
+    # setVariable("tkRplotRcanvasWidth", width)
+    # setVariable("tkRplotRcanvasHeight", height)
+    # setVariable("usr" , parent$env$usr)
+    # setVariable("plt" , parent$env$plt)
+    # parent$env$canvas$coef <- getCoef()
+    setCoef(parent)
+    #print(getCoef())
+  })
+}
+
 
 #' @title Add Tk Binds
 #' @description
@@ -367,49 +348,105 @@ tkBinds <- local({
 #' }
 
 ###### addTkBind #####
-addTkBind <- function(win, event, fun){
-  if (is.function(fun)) fun <- .Tcl.callback(fun)
-  tkbind(win, event, paste("+", fun))
+addTkBind <- function(win, event, fun = NULL) {
+  if (is.null(fun))
+    tkbind(win, event, "")
+  if (is.function(fun))
+    fun <- .Tcl.callback(fun)
+  if (tclvalue(tkbind(win, event)) == "") {
+    tkbind(win, event, fun)
+  } else{
+    tkbind(win, event, paste("+", fun))
+  }
 }
 
+
 ###### globalVariable #####
+# globalVariable <- local({
+#   globalEnv <- new.env(parent = emptyenv())
+#   globalVars <- NULL
+#   function(type = NULL,
+#            name = NULL,
+#            value) {
+#     if (!is.null(name)) {
+#       if (type == "set") {
+#         assign(name, value, envir = globalEnv)
+#         assign("globalVars", sort(unique(c(
+#           globalVars, name
+#         ))), envir = environment(globalVariable))
+#         return(invisible(value))
+#       }
+#       if (type == "get") {
+#         if (!name %in% globalVars){
+#           return(message("First define variable"))}
+#         return(get(name, envir = globalEnv))
+#       }
+#       if (type == "rm") {
+#         assign("globalVars", globalVars[!globalVars %in% name],
+#                envir = environment(globalVariable))
+#         assign(name, NULL, envir = globalEnv)
+#       }
+#     }
+#
+#     if (is.null(type))
+#       return(ls(envir = environment(globalVariable), all.names = TRUE))
+#     if (type == "ls")
+#       return(globalVars)
+#     if (type == "env")
+#       return(globalEnv)
+#     # if (type == "all2r")
+#     #   invisible(lapply(
+#     #     globalVars,
+#     #     FUN = function(x)
+#     #       assign(x, get(x, envir = globalEnv), envir = .GlobalEnv)
+#     #   ))
+#   }
+# })
+
 globalVariable <- local({
   globalEnv <- new.env(parent = emptyenv())
   globalVars <- NULL
   function(type = NULL,
            name = NULL,
-           value) {
-    if (!is.null(name)) {
-      if (type == "set") {
+           value,
+           where = .GlobalEnv) {
+    switch(
+      type,
+      set = {
         assign(name, value, envir = globalEnv)
         assign("globalVars", sort(unique(c(
           globalVars, name
         ))), envir = environment(globalVariable))
-      }
-      if (type == "get") {
-        if (!name %in% globalVars)
+        return(invisible(value))
+      },
+      get = {
+        if (!name %in% globalVars) {
           return(message("First define variable"))
+        }
         return(get(name, envir = globalEnv))
-      }
-      if (type == "rm") {
+      },
+      rm = {
         assign("globalVars", globalVars[!globalVars %in% name],
                envir = environment(globalVariable))
-        assign(name, NULL, envir = globalEnv)
+        return(assign(name, NULL, envir = globalEnv))
+      },
+      ls = {
+        return(globalVars)
+      },
+      env = {
+        return(globalEnv)
+      },
+      all2R = {
+        type <- "all2r"
       }
+    )
+    if (type == "all2r") {
+      return(invisible(lapply(
+        globalVars,
+        FUN = function(x)
+          assign(x, get(x, envir = globalEnv), envir = where)
+      )))
     }
-
-    if (is.null(type))
-      return(ls(envir = environment(globalVariable), all.names = TRUE))
-    if (type == "ls")
-      return(globalVars)
-    if (type == "env")
-      return(globalEnv)
-    # if (type == "all2r")
-    #   invisible(lapply(
-    #     globalVars,
-    #     FUN = function(x)
-    #       assign(x, get(x, envir = globalEnv), envir = .GlobalEnv)
-    #   ))
   }
 })
 
@@ -431,12 +468,15 @@ globalVariable <- local({
 #' exists("var1")
 #' getVariable("var1")
 #'
+#' getVariable("tkRplotRpngType")
+#'
 
 ###### setVariable  #####
 setVariable <- function(name, value = NULL) {
   globalVariable(type = "set", name, value = value)
 }
 
+setVariable("tkRplotRpngType", "cairo-png")
 # #' @title Get a Variable
 # #' @description
 # #' This function gets the value of a variable
@@ -459,14 +499,15 @@ getAllVariables <- function()
 #' @title Tk Rplot With Resizing
 #' @description
 #' Dispaly a plot in a Tk toplevel window.
-#' @aliases tkRreplot
-#' @usage tkRplot(parent, fun, height = 490, width = 490, ...)
-#' tkRreplot(parent, fun = parent$env$fun, ...)
-#' @param parent Tk toplevel window
+#' @aliases tkRreplot .tkRreplot
+#' @usage tkRplot(W, fun, width = 490, height = 490, ...)
+#' tkRreplot(W, fun, width, height,  ...)
+#' .tkRreplot(W)
+#' @param W Tk toplevel window
 #' @param fun function to produce the plot
-#' @param height image height
 #' @param width image width
-#' @param ... aditional arguments
+#' @param height image height
+#' @param ... additional arguments
 #' @export
 #' @examples
 #' \dontshow{
@@ -519,7 +560,9 @@ getAllVariables <- function()
 #'        tkpack(s,
 #'        side = "bottom",
 #'        expand = FALSE,
+#'        before = tt$env$canvas,
 #'        fill = "both")
+#'
 #'        Sys.sleep(1)
 #'        tkdestroy(tt)
 #'        }
@@ -528,6 +571,14 @@ getAllVariables <- function()
 #' bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
+#' f <- function(...) {
+#'  b <- as.numeric(tclvalue(tkbb))
+#'    if (b != bb) {
+#'        bb <<- b
+#'            tkRreplot(tt)
+#'              }
+#'      }
+#'
 #' tt <- tkRplot(tt, function() {
 #'  x <- 1:20 / 20
 #'    plot(
@@ -550,69 +601,77 @@ getAllVariables <- function()
 #'           box()
 #'           })
 #'
-#'  f <- function(...) {
-#'  b <- as.numeric(tclvalue(tkbb))
-#'    if (b != bb) {
-#'        bb <<- b
-#'            tkRreplot(tt)
-#'              }
-#'      }
-#'
-#'      s <-
-#'        tkscale(
+#'   s <- tkscale(
 #'        tt,
 #'        command = f,
 #'        from = 0.05,
 #'        to = 2.00,
 #'        variable = tkbb,
-#'        showvalue = FALSE,
-#'        resolution = 0.05,
+#'        showvalue = TRUE,
+#'        resolution = 0.01,
+#'        repeatdelay = 50,
+#'        repeatinterval = 100,
 #'        orient = "horiz"
 #'        )
 #'
 #'        tkpack(s,
 #'        side = "bottom",
 #'        expand = FALSE,
+#'        before = tt$env$canvas,
 #'        fill = "both")
 #'
 #'}
 
 ###### tkRplot #####
-tkRplot <- function(parent,
+
+
+tkRplot <- function(W,
                     fun,
-                    height = 490,
                     width = 490,
+                    height = 490,
                     ...) {
-  setVariable("tkRplotRcanvasWidth", width)
-  setVariable("tkRplotRcanvasHeight", height)
+  if (.getToplevelID(W) != W$ID) {
+    stop("Please use a toplevel widget!")
+  }
+  setVariable("tkRplotRcurrentToplevel", W)
+  setVariable(.Tk.ID(W), W)
+  #setVariable("tkRplotRcanvasWidth", width)
+  #setVariable("tkRplotRcanvasHeight", height)
   fp <-
     tempfile(pattern = "tkRplotR.",
              tmpdir = tempdir(),
              fileext = ".png")
   on.exit(unlink(fp))
-  png(filename = fp ,
-      width = width,
-      height = height)
-  try(fun(...))
-  setVariable("usr" , parent$env$usr <- par("usr"))
-  setVariable("plt" , parent$env$plt <- par("plt"))
+  png(
+    filename = fp ,
+    type = getVariable("tkRplotRpngType"),
+    width = width,
+    height = height
+  )
+  plotOk <- try(fun(...),  silent = TRUE)
+  if (inherits(plotOk, "try-error"))
+    return(dev.off())
+  W$env$usr <- setVariable("usr" , par("usr"))
+  W$env$plt <- setVariable("plt" , par("plt"))
   dev.off()
-  image <- tkimage.create("photo", "TkRplot", file = fp)
-  parent$env$canvas <-
+  #
+  imageId <- paste0("TkRplot", W$ID)
+  image <- tkimage.create("photo", imageId , file = fp)
+  W$env$canvas <-
     tkcanvas(
-      parent,
+      W,
       relief = "flat",
       borderwidth = 0,
       background =  "white"
     )
-  tkconfigure(parent$env$canvas, width = width, height = height)
+  tkconfigure(W$env$canvas, width = width, height = height)
   tkpack(
-    parent$env$canvas,
+    W$env$canvas,
     anchor = "center",
     fill = "both",
     expand = 1
   )
-  tcl(parent$env$canvas,
+  tcl(W$env$canvas,
       "create",
       "image",
       0,
@@ -620,55 +679,111 @@ tkRplot <- function(parent,
       image = image  ,
       anchor = "nw")
 
-  tkbind(parent$env$canvas, "<Destroy>", function()
-    .Tcl(paste("image delete",
-               image)))
-
-  parent$env$image <- image
-  parent$env$fun <- fun
-  parent$env$height <-  height
-  parent$env$width <-  width
-  parent$env$canvas$coef <- getCoef()
-  tkBinds(parent)
-  tkconfigure(parent$env$canvas, width = width - 2, height = height - 2)
-  invisible(parent)
+  tkbind(W$env$canvas, "<Destroy>", function() {
+    .Tcl(paste("image delete", image))
+  })
+  W$env$imageId <- imageId
+  W$env$image <- image
+  W$env$fun <- fun
+  #W$env$height <- setVariable("tkRplotRcanvasHeight", height)
+  #W$env$width <- setVariable("tkRplotRcanvasWidth", width)
+  #W$env$canvas$coef <- getCoef()
+  tkconfigure(W$env$canvas, width = width - 2, height = height - 2)
+  tkBinds(W)
+  setCoef(W)
+  invisible(W)
 }
+
 
 ###### tkRreplot #####
 #' @export
-tkRreplot <- function(parent,
-                      fun = parent$env$fun,
+tkRreplot <- function(W,
+                      fun,
+                      width,
+                      height,
                       ...) {
-  height <- parent$env$height
-  width <- parent$env$width
+   if (missing(W))
+     W <- getVariable("tkRplotRcurrentToplevel")
+  parent <- .getToplevel(W)
+
+  if (missing(fun)) {
+    fun <- parent$env$fun
+  }
+
+  if (missing(width)) {
+    width <-
+      as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+  }
+
+  if (missing(height)) {
+    height <-
+      as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
+  }
+
   fp <-
     tempfile(pattern = "tkRplotR.",
              tmpdir = tempdir(),
              fileext = ".png")
   on.exit(unlink(fp))
-  png(filename = fp ,
-      width = width,
-      height = height)
+  png(
+    filename = fp ,
+    type = getVariable("tkRplotRpngType"),
+    width = width,
+    height = height
+  )
   plotOk <- try(fun(...),  silent = TRUE)
   if (inherits(plotOk, "try-error"))
     return(dev.off())
-  setVariable("usr" , parent$env$usr <- par("usr"))
-  setVariable("plt" , parent$env$plt <- par("plt"))
+parent$env$usr <-   setVariable("usr" , par("usr"))
+parent$env$plt <-  setVariable("plt" , par("plt"))
   dev.off()
-  tcl("TkRplot","blank")
-  tkimage.create("photo", "TkRplot", file = fp)
+  tcl(parent$env$imageId, "blank")
+  # tkpack.forget(parent$env$canvas)
+  tkimage.create("photo", parent$env$imageId, file = fp)
+  # tkpack(parent$env$canvas,
+  #        expand = 1,
+  #        fill = "both")
+  # parent$env$height <- height
+  # parent$env$width <- width
+  parent$env$width <- setVariable("tkRplotRcanvasWidth", width)
+  parent$env$height <- setVariable("tkRplotRcanvasHeight", height)
+  #setVariable("usr" , parent$env$usr)
+  #setVariable("plt" , parent$env$plt)
+  setCoef(parent)
+
+ # parent$env$canvas$coef <- getCoef()
+
+
+  #.Tcl("update")
 }
 
+#tclTkRreplot <- .tclFun1(tkRreplot)
 
+#' @export
+##### .tkRreplot #####
+.tkRreplot <- function(W) {
+  .Tcl("global tkRreplotRdoResize")
+  if (tclvalue(.Tcl("info exists tkRreplotRdoResize")) == 1)
+    .Tcl("after cancel $tkRreplotRdoResize")
+  funCallBack <- substr(.Tcl.callback(tkRreplot), 1, 17)
+  cmd <-
+    paste0("set tkRreplotRdoResize [after 0 ",  funCallBack, W, "]")[[1]]
+  return(invisible(.Tcl(cmd)))
+}
 
 #' @title Functions to Convert Tk and User Coordinates
 #' @description
-#' Functions to convert coordinates.
-#' @aliases tk2usr
-#' @usage getCoef()
-#' tk2usr(x,y)
-#' @param x x position in the tk canvas
-#' @param y y position in the tk canvas
+#' Convert Tk coordinates from/to user coordinates.
+#' @aliases getCoef tk2usr usr2tk
+#' @usage setCoef(W, width, height)
+#' getCoef(W)
+#' tk2usr(W, x = NULL, y = NULL)
+#' usr2tk(W, x = NULL, y = NULL)
+#' @param W the window (toplevel). If W is missing the getCoef function returns the coefficients for the last toplevel visited.
+#' @param width width of the canvas (image)
+#' @param height height of the canvas (image)
+#' @param x x position.
+#' @param y y position.
 #' @export
 #' @examples
 #' \dontshow{
@@ -792,7 +907,7 @@ tkRreplot <- function(parent,
 #'      y <- as.numeric(y)
 #'        for (i in c(canPos, lineVertical, lineHorizontal,canPosX,canPosY))
 #'        tkdelete(tt$env$canvas, tclvalue(i))
-
+#'
 #'             xy <- formatC(tk2usr(x, y),
 #'                             digits = 2,
 #'                              format = "f",
@@ -826,34 +941,144 @@ tkRreplot <- function(parent,
 #'
 #'  }
 
+#setCoef
+setCoef <- function(W, width, height) {
+  parent <- .getToplevel(W)
+  if (missing(width)) {
+    width <-
+      as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+  } else{
+    if (!is.numeric(width)) {
+      width <-
+        as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+    }
+  }
+  if (missing(height)) {
+    height <-
+      as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
+  } else{
+    if (!is.numeric(height)) {
+      height <-
+        as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
+    }
+  }
+  setVariable("usr" , usr <- parent$env$usr)
+  setVariable("plt" , plt <- parent$env$plt)
+  parent$env$height <- setVariable("tkRplotRcanvasHeight",
+                                   height)
+  parent$env$width <- setVariable("tkRplotRcanvasWidth",
+                                  width)
+  xCoef <-
+    setVariable("xCoef", .getCoef(plt[1:2] * (
+      getVariable("tkRplotRcanvasWidth") + 0.5
+    ), usr[1:2]))
+  yCoef <-
+    setVariable("yCoef", .getCoef((1 - plt[3:4]) * (
+      getVariable("tkRplotRcanvasHeight") + 0.5
+    ), usr[3:4]))
+  out <- list(x = xCoef, y = yCoef)
+  parent$env$canvas$coef <- out
+  return(out)
+}
+
+#' @export
 ###### getCoef #####
-getCoef <- function() {
-  #x = NULL, y = NULL) {
-  #if (is.null(x))
-  x <- getVariable("plt")
-  #if (is.null(y))
-  y <- getVariable("usr")
-  X <- x[1:2] * (getVariable("tkRplotRcanvasWidth") + 1)
-  Y <- y[1:2]
-  a <- diff(Y) / diff(X)
-  xCoef <- c(a, Y[1] - a * X[1])
-  setVariable("xCoef", xCoef)
-  X <- (1 - x[4:3]) * (getVariable("tkRplotRcanvasHeight") + 1)
-  Y <- y[4:3]
-  a <- diff(Y) / diff(X)
-  yCoef <- c(a, Y[1] - a * X[1])
-  setVariable("yCoef", yCoef)
+
+getCoef <- function(W) {
+  if (!missing(W)) {
+    parent <- .getToplevel(W)
+    width <-
+      as.numeric(.Tcl(paste("winfo width", parent$env$canvas)))
+    height <-
+      as.numeric(.Tcl(paste("winfo height", parent$env$canvas)))
+    widthPrevious <- parent$env$width
+    heightPrevious <- parent$env$height
+    if (any(isTRUE(widthPrevious!=width), isTRUE(heightPrevious!=height)))  {
+      tkRreplot(parent)
+    }
+    setVariable("tkRplotRcanvasWidth", width)
+    setVariable("tkRplotRcanvasHeight", height)
+    setVariable("usr" , parent$env$usr)
+    setVariable("plt" , parent$env$plt)
+    newCoef <- getCoef()
+    parent$env$canvas$coef <- newCoef
+    return(newCoef)
+  }
+  plt <- getVariable("plt")
+  usr <- getVariable("usr")
+  setVariable("xCoef", xCoef <-
+                .getCoef(plt[1:2] * (
+                  getVariable("tkRplotRcanvasWidth") + 0.5
+                ), usr[1:2]))
+  setVariable("yCoef",   yCoef <-
+                .getCoef((1 - plt[3:4]) * (
+                  getVariable("tkRplotRcanvasHeight") + 0.5
+                ),
+                usr[3:4]))
   return(list(x = xCoef, y = yCoef))
 }
 
+#' @export
+###### .getCoef #####
+.getCoef <- function(plt, usr) {
+  a <- diff(usr) / diff(plt)
+  c(a, usr[1] - a * plt[1])
+}
 
 #' @export
 ###### tk2usr #####
-tk2usr <- function(x, y) {
-  c(
-    as.numeric(x) * getVariable("xCoef")[1] + getVariable("xCoef")[2],
-    (as.numeric(y) - 1) * getVariable("yCoef")[1] + getVariable("yCoef")[2]
-  )
+
+# tk2usr <- function(x, y) {
+#   c(
+#     x = as.numeric(x) * getVariable("xCoef")[1] + getVariable("xCoef")[2],
+#     y = as.numeric(y) * getVariable("yCoef")[1] + getVariable("yCoef")[2]
+#   )
+# }
+
+tk2usr <- function(W, x = NULL, y = NULL) {
+  if (inherits(W, "tkwin")) {
+    parent <- .getToplevel(W)
+    coef <- parent$env$canvas$coef
+    return(c(
+      x = as.numeric(x) * coef$x[1] + coef$x[2],
+      y = as.numeric(y) * coef$y[1] + coef$y[2]
+    ))
+  } else{
+    y <- x
+    x <- W
+    coef <- list(x = getVariable("xCoef"), y = getVariable("yCoef"))
+    return(c(
+      x = as.numeric(x) * coef$x[1] + coef$x[2],
+      y = as.numeric(y) * coef$y[1] + coef$y[2]
+    ))
+  }
+}
+
+#' @export
+###### usr2tk #####
+# usr2tk <- function(x = NULL, y = NULL) {
+#   c(
+#     x = (x - getVariable("xCoef")[2]) / getVariable("xCoef")[1] - 0.5,
+#     y = (y - getVariable("yCoef")[2]) / getVariable("yCoef")[1] - 0.5
+#   )
+# }
+
+usr2tk <- function(W, x = NULL, y = NULL) {
+  if (inherits(W, "tkwin")) {
+    parent <- .getToplevel(W)
+    coef <- parent$env$canvas$coef
+    return(c(
+      x = (x - coef$x[2]) / coef$x[1] - 0.5,
+      y = (y - coef$y[2]) / coef$y[1] - 0.5
+    ))
+  } else{
+    y <- x
+    x <- W
+    return(c(
+      x = (x - getVariable("xCoef")[2]) / getVariable("xCoef")[1] - 0.5,
+      y = (y - getVariable("yCoef")[2]) / getVariable("yCoef")[1] - 0.5
+    ))
+  }
 }
 
 
@@ -905,9 +1130,10 @@ tkLocator <- function(parent, n = 1) {
     tclvalue(done) <- 2)
   tkbind(parent, "<Escape>", function()
     tclvalue(done) <<- 1)
-  tkbind(parent$env$canvas, "<Control-Button-1>", function(x, y) {
+  tkbind(parent$env$canvas, "<Control-Button-1>", function(W, x, y) {
+    W <- .getToplevel(W)
     i <<- i + 1
-    out[i, ] <<- tk2usr(x, y)
+    out[i, ] <<- tk2usr(W, x, y)
     if (i == n)
       tclvalue(done) <<- 1
   })

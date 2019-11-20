@@ -3,21 +3,23 @@
 \name{tkRplot}
 \alias{tkRplot}
 \alias{tkRreplot}
+\alias{.tkRreplot}
 \title{Tk Rplot With Resizing}
 \usage{
-tkRplot(parent, fun, height = 490, width = 490, ...)
-tkRreplot(parent, fun = parent$env$fun, ...)
+tkRplot(W, fun, width = 490, height = 490, ...)
+tkRreplot(W, fun, width, height,  ...)
+.tkRreplot(W)
 }
 \arguments{
-\item{parent}{Tk toplevel window}
+\item{W}{Tk toplevel window}
 
 \item{fun}{function to produce the plot}
 
-\item{height}{image height}
-
 \item{width}{image width}
 
-\item{...}{aditional arguments}
+\item{height}{image height}
+
+\item{...}{additional arguments}
 }
 \description{
 Dispaly a plot in a Tk toplevel window.
@@ -73,7 +75,9 @@ tt <- tkRplot(tt, function() {
        tkpack(s,
        side = "bottom",
        expand = FALSE,
+       before = tt$env$canvas,
        fill = "both")
+
        Sys.sleep(1)
        tkdestroy(tt)
        }
@@ -82,6 +86,14 @@ tt <- tkRplot(tt, function() {
 bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
+f <- function(...) {
+ b <- as.numeric(tclvalue(tkbb))
+   if (b != bb) {
+       bb <<- b
+           tkRreplot(tt)
+             }
+     }
+
 tt <- tkRplot(tt, function() {
  x <- 1:20 / 20
    plot(
@@ -104,29 +116,23 @@ tt <- tkRplot(tt, function() {
           box()
           })
 
- f <- function(...) {
- b <- as.numeric(tclvalue(tkbb))
-   if (b != bb) {
-       bb <<- b
-           tkRreplot(tt)
-             }
-     }
-
-     s <-
-       tkscale(
+  s <- tkscale(
        tt,
        command = f,
        from = 0.05,
        to = 2.00,
        variable = tkbb,
-       showvalue = FALSE,
-       resolution = 0.05,
+       showvalue = TRUE,
+       resolution = 0.01,
+       repeatdelay = 50,
+       repeatinterval = 100,
        orient = "horiz"
        )
 
        tkpack(s,
        side = "bottom",
        expand = FALSE,
+       before = tt$env$canvas,
        fill = "both")
 
 }
