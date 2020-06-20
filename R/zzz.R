@@ -9,12 +9,31 @@
 #   packageStartupMessage(
 #     c("\n", tvb$Package, "\n"),
 #     c("Version: ", tvb$Version, "\n")
-#     #,c("Compiled:", tvb$Built, "\n\n")
 #     )
 # }
 
 
 .onAttach <- function(libname, pkgname) {
+
+  packageStartupMessage("tkRplotR Version ",
+                        utils::packageDescription(pkg = pkgname, lib.loc = libname, field="Version"))
+  if(as.numeric(.Tcl("info tclversion")) < 8.5) {
+    packageStartupMessage(" *** tkRplotR needs tcl/tk version 8.5 or newer ***\n")
+  }
+
+  ## load Img tk extension if available
+  sysname <- Sys.info()[1]
+  didLoad <- TRUE
+  if (sysname == "Darwin") {
+    addTclPath("/System/Library/Tcl")
+    didLoad <- tclRequire('Img', warn = FALSE)
+  } else {
+    didLoad <- tclRequire('Img', warn = FALSE)
+  }
+
+  if(identical(didLoad,FALSE)) {
+    packageStartupMessage("Please install 'Img' extension for tcltk ",
+                          tcltk::tclVersion())  }
 
   ### select the correct "type" for the png function
 
@@ -50,20 +69,19 @@
     }
   }
 
-
   switch(
     pngType,
     "cairo" = {
-      setVariable("tkRplotRpngType", "cairo")
+      setVariable("tkRplotR_pngType", "cairo")
     },
     "cairo-png" = {
-      setVariable("tkRplotRpngType", "cairo-png")
+      setVariable("tkRplotR_pngType", "cairo-png")
     },
     "Xlib" = {
-      setVariable("tkRplotRpngType", "Xlib")
+      setVariable("tkRplotR_pngType", "Xlib")
     },
     "quartz" = {
-      setVariable("tkRplotRpngType", "quartz")
+      setVariable("tkRplotR_pngType", "quartz")
     },
     NULL =  {
       packageStartupMessage("The transparency does not work!!!")
@@ -76,6 +94,6 @@
   if (!capabilities("tcltk"))
   stop(packageStartupMessage("Your R has no capability for tcltk."))
 
-  .isTclImgOk()
+  #.isTclImgOk()
 }
 
