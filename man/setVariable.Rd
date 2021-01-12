@@ -3,10 +3,12 @@
 \name{setVariable}
 \alias{setVariable}
 \alias{getVariable}
-\title{Set and Get Variables}
+\alias{rmVariable}
+\title{Set, Get, and Remove Variables}
 \usage{
 setVariable(name, value = NULL)
-getVariable(name)
+getVariable(name, value = NULL)
+rmVariable(name)
 }
 \arguments{
 \item{name}{name of the variable}
@@ -14,13 +16,14 @@ getVariable(name)
 \item{value}{the value of the variable}
 }
 \description{
-Define and get variables
+Define, get, and remove variables
 }
 \examples{
 setVariable("var1", 1)
 exists("var1")
 getVariable("var1")
-
+rmVariable("var1")
+getVariable("var1")
 getVariable("tkRplotR_pngType")
 
 }

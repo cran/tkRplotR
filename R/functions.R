@@ -1,3 +1,57 @@
+#' @export
+.selectPngType <- function(){
+  for (pngType in c("cairo-png", "cairo", "Xlib", "quartz", NULL)) {
+    fp <- tempfile(pattern = "tkRplotR.",
+                   tmpdir = tempdir(),
+                   fileext = ".png")
+
+    grDevices::png(
+      filename = fp ,
+      type = pngType,
+      width = 10,
+      height = 10
+    )
+
+    par(oma = rep(0, 4))
+    par(mar = rep(0, 4))
+    plot(
+      1,
+      type = "n",
+      ann = FALSE,
+      axes = FALSE,
+      xlim = c(0, 1),
+      ylim = c(0, 1)
+    )
+    rect(.5, -1, 2, 2, col = rgb(1, 0, 0, .5), border = NA)
+    dev.off()
+    imageId <- paste0("TkRplot")
+    image <- tcltk::tkimage.create("photo", imageId , file = fp)
+
+    if ((tcltk::tclvalue(tcltk::.Tcl("TkRplot get 0 0")) != tcltk::tclvalue(tcltk::.Tcl("TkRplot get 5 5")))) {
+      break
+    }
+  }
+
+  return(pngType)
+  switch(
+    pngType,
+    "cairo" = {
+      return( "cairo")
+    },
+    "cairo-png" = {
+      return("cairo-png")
+    },
+    "Xlib" = {
+      return("Xlib")
+    },
+    "quartz" = {
+      return("quartz")
+    },
+    NULL =  {
+      return(NULL)
+    }
+  )
+}
 
 
 #' @import grDevices
@@ -20,16 +74,45 @@
 
 #' @export .isTclImgOk
 .isTclImgOk <- function() {
-  if (as.numeric(R.version$minor) < 4 |
+  if (as.numeric(R.version$major) < 4 &&
+      as.numeric(R.version$minor) < 4 |
       as.character(tcltk::tcl("info", "tclversion")) <= "8.5") {
-    packageStartupMessage("Please install 'Img' extension for tcltk ",
+    packageStartupMessage("Please install 'Img' extension for tcltk",
                           tcltk::tclVersion())
     return(FALSE)
   }
-  # packageStartupMessage(paste("tcltk", as.character(tcltk::tcl(
-  #   "info", "tclversion"
-  # ))))
   return(TRUE)
+}
+# .isTclImgOk <- function() {
+#   if (as.numeric(R.version$minor) < 4 |
+#       as.character(tcltk::tcl("info", "tclversion")) <= "8.5") {
+#     packageStartupMessage("Please install 'Img' extension for tcltk ",
+#                           tcltk::tclVersion())
+#     return(FALSE)
+#   }
+#   # packageStartupMessage(paste("tcltk", as.character(tcltk::tcl(
+#   #   "info", "tclversion"
+#   # ))))
+#   return(TRUE)
+# }
+
+#' @export .tclFun0
+#'
+.tclFun0 <- function(f,
+                     name = deparse(substitute(f)))
+{
+  name <- paste("R", make.names(name[1]), sep = "_")
+  res <-
+    paste(strsplit(.Tcl.callback(f), " ")[[1]][1:2], collapse = " ")
+  if (length(grep("R_call ", res) > 0)) {
+    .Tcl(paste("proc ",
+               name,
+               " args {",
+               res,
+               "}",
+               sep = ""))
+  }
+  return(res)
 }
 
 #' @export .tclFun1
@@ -59,13 +142,42 @@
   return(res)
 }
 
+
+#' @export .tclFun
+.tclFun <- function(f,
+                     name = deparse(substitute(f)),
+                     args = names(formals(f)))
+{
+  name <- paste("R", make.names(name[1]), sep = "_")
+
+  #res <- .Tcl.callback(f)
+  #res <- strtrim(res, 16)
+  res <- paste(strsplit(.Tcl.callback(f), " ")[[1]][1:2], collapse = " ")
+  if (length(grep("R_call ", res) > 0)) {
+    .Tcl(paste(
+      "proc ",
+      name,
+      " {",
+      paste(args, collapse = " "),
+      "} {",
+      res,
+      " ",
+      paste0("$", args, collapse = " "),
+      "}",
+      sep = ""
+    ))
+  }
+  return(res)
+}
+
+
 #' @export
 .getToplevelID <- function(win) {
   if (is.tkwin(win)) {
     win <- win$ID
   }
-  #return(paste0(".", strsplit(win, split = "\\.")[[1]][2]))
-  tclvalue(tkwinfo("toplevel", win))
+  return(paste0(".", strsplit(win, split = "\\.")[[1]][2]))
+  #tclvalue(tkwinfo("toplevel", win))
 }
 
 #' @export
@@ -401,15 +513,25 @@ addTkBind <- function(win, event, fun = NULL) {
 #   }
 # })
 
+# @export
+#' @keywords internal
 globalVariable <- local({
   globalEnv <- new.env(parent = emptyenv())
-  globalVars <- NULL
+  assign("tkRplotR_pngType", .selectPngType(), envir = globalEnv)
+  globalVars <- "tkRplotR_pngType"
   function(type = NULL,
            name = NULL,
            value,
            where = .GlobalEnv) {
     switch(
       type,
+      get = {
+        if (!name %in% globalVars) {
+          globalVariable("set", name, value)
+          return(value)
+        }
+        return(get(name, envir = globalEnv))
+      },
       set = {
         assign(name, value, envir = globalEnv)
         assign("globalVars", sort(unique(c(
@@ -417,16 +539,11 @@ globalVariable <- local({
         ))), envir = environment(globalVariable))
         return(invisible(value))
       },
-      get = {
-        if (!name %in% globalVars) {
-          return(message(sprintf("The variable '%s' is not set.", name)))
-        }
-        return(get(name, envir = globalEnv))
-      },
       rm = {
-        assign("globalVars", globalVars[!globalVars %in% name],
-               envir = environment(globalVariable))
-        return(assign(name, NULL, envir = globalEnv))
+        nameIndex <- globalVars %in% name
+        globalVars <<- globalVars[!nameIndex]
+        if (any(nameIndex))
+        return(rm(list = name, envir = globalEnv))
       },
       ls = {
         return(globalVars)
@@ -449,15 +566,17 @@ globalVariable <- local({
 })
 
 
-#' @title Set and Get Variables
+#' @title Set, Get, and Remove Variables
 #' @description
-#' Define and get variables
+#' Define, get, and remove variables
 #' @aliases
 #' setVariable
 #' getVariable
+#' rmVariable
 #' @usage
 #' setVariable(name, value = NULL)
-#' getVariable(name)
+#' getVariable(name, value = NULL)
+#' rmVariable(name)
 #' @param name name of the variable
 #' @param value the value of the variable
 #' @export
@@ -465,7 +584,8 @@ globalVariable <- local({
 #' setVariable("var1", 1)
 #' exists("var1")
 #' getVariable("var1")
-#'
+#' rmVariable("var1")
+#' getVariable("var1")
 #' getVariable("tkRplotR_pngType")
 #'
 
@@ -474,23 +594,28 @@ setVariable <- function(name, value = NULL) {
   globalVariable(type = "set", name, value = value)
 }
 
-# #' @title Get a Variable
-# #' @description
-# #' This function gets the value of a variable
-# #' @param name name of the variable
 #' @export
 
 ###### getVariable #####
-getVariable <- function(name) {
-  globalVariable(type = "get", name)
+getVariable <- function(name, value = NULL) {
+   return(globalVariable(type = "get", name, value))
 }
 
-getEnv <- function()
+
+#' @export
+###### rmVariable #####
+rmVariable <- function(name) {
+  globalVariable(type = "rm", name)
+}
+
+
+getEnv <- function(){
   globalVariable("env")
+  }
 
-getAllVariables <- function()
-  ls(getEnv())
-
+getAllVariables <- function(all.names = TRUE){
+  ls(getEnv(), all.names = all.names)
+  }
 
 
 #' @title Tk Rplot With Resizing
@@ -720,7 +845,6 @@ tkRreplot <- function(W,
     fun <- parent$env$fun
   }
 
-
   fp <-
     tempfile(pattern = "tkRplotR.",
              tmpdir = tempdir(),
@@ -757,6 +881,7 @@ tkRreplot <- function(W,
 
 #tclTkRreplot <- .tclFun1(tkRreplot)
 
+#' @export
 .TclCallback <- function(x) {
   paste(strsplit(.Tcl.callback(x), " ")[[1]][1:2], collapse = " ")
 }
@@ -1152,3 +1277,4 @@ tkLocator <- function(parent, n = 1) {
 .lsVariable <- function(){
   globalVariable("ls")
 }
+
