@@ -22,7 +22,7 @@ tkRreplot(W, fun, width, height,  ...)
 \item{...}{additional arguments}
 }
 \description{
-Dispaly a plot in a Tk toplevel window.
+Displays a plot in a Tk toplevel window.
 }
 \examples{
 \dontshow{

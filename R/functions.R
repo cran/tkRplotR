@@ -1,15 +1,36 @@
 #' @export
 .selectPngType <- function(){
-  for (pngType in c("cairo-png", "cairo", "Xlib", "quartz", NULL)) {
+
+  #TODO
+  #catchError <-  try(grDevices::png(
+  # filename = "tkRplotR_test.png",
+  #       type ="error",
+  #       width = 100,
+  #       height = 100
+  #     ), silent = TRUE)
+  #
+  # strsplit(catchError[[1]],",")[[1]][-1]
+  #
+  selectedPngType <- getOption("bitmapType")
+  pngTypes <- c(NULL,"Xlib", "cairo","cairo-png")
+
+  switch(Sys.info()[1],
+         Darwin = pngTypes <-
+           c(NULL, "quartz",  "Xlib","cairo"),
+         windows = pngTypes <-
+           c(NULL, "windows","Xlib","cairo","cairo-png"))
+
+  try(
+  for (pngType in pngTypes) {
     fp <- tempfile(pattern = "tkRplotR.",
                    tmpdir = tempdir(),
                    fileext = ".png")
 
     grDevices::png(
-      filename = fp ,
+      filename = fp,
       type = pngType,
-      width = 10,
-      height = 10
+      width = 100,
+      height = 100
     )
 
     par(oma = rep(0, 4))
@@ -22,35 +43,18 @@
       xlim = c(0, 1),
       ylim = c(0, 1)
     )
-    rect(.5, -1, 2, 2, col = rgb(1, 0, 0, .5), border = NA)
+   suppressWarnings(rect(.5, -1, 2, 2, col = rgb(1, 0, 0, .5), border = NA))
     dev.off()
     imageId <- paste0("TkRplot")
     image <- tcltk::tkimage.create("photo", imageId , file = fp)
 
-    if ((tcltk::tclvalue(tcltk::.Tcl("TkRplot get 0 0")) != tcltk::tclvalue(tcltk::.Tcl("TkRplot get 5 5")))) {
+    if ((tcltk::tclvalue(tcltk::.Tcl("TkRplot get 0 0")) != tcltk::tclvalue(tcltk::.Tcl("TkRplot get 50 50")))) {
+      selectedPngType <- pngType
       break
     }
-  }
+  }, silent=TRUE)
 
-  return(pngType)
-  switch(
-    pngType,
-    "cairo" = {
-      return( "cairo")
-    },
-    "cairo-png" = {
-      return("cairo-png")
-    },
-    "Xlib" = {
-      return("Xlib")
-    },
-    "quartz" = {
-      return("quartz")
-    },
-    NULL =  {
-      return(NULL)
-    }
-  )
+  return(selectedPngType)
 }
 
 
@@ -517,6 +521,7 @@ addTkBind <- function(win, event, fun = NULL) {
 #' @keywords internal
 globalVariable <- local({
   globalEnv <- new.env(parent = emptyenv())
+
   assign("tkRplotR_pngType", .selectPngType(), envir = globalEnv)
   globalVars <- "tkRplotR_pngType"
   function(type = NULL,
@@ -620,7 +625,7 @@ getAllVariables <- function(all.names = TRUE){
 
 #' @title Tk Rplot With Resizing
 #' @description
-#' Dispaly a plot in a Tk toplevel window.
+#' Displays a plot in a Tk toplevel window.
 #' @aliases tkRreplot .tkRreplot
 #' @usage tkRplot(W, fun, width = 490, height = 490, ...)
 #' tkRreplot(W, fun, width, height,  ...)

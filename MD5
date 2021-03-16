@@ -1,10 +1,11 @@
-e678856247134847a82687f79d712820 *DESCRIPTION
+5d8ef34c7fe9fc6c22112f8d180cf99c *DESCRIPTION
 9ec2acffcc149cc842d17afdea902605 *NAMESPACE
-f28116cb4117936482a84f3678b8ba4b *R/functions.R
+740f397c656749c1a7d2efd781c7f784 *R/functions.R
 ff32455344c71e6445d2d3cd76a264d7 *R/zzz.R
 253b0f33269eedd1e783c76865b6dffc *man/addTkBind.Rd
 2d920a23f3054103fcdc6527fe1d9750 *man/setCoef.Rd
 0a1c9f0b8c2d134fa9f7e7255aab7b72 *man/setVariable.Rd
 d1b9ed798a0353b9214501820502b1d8 *man/tkBinds.Rd
 1478f8c542d8bb70e5b1ffca4df1b709 *man/tkLocator.Rd
-40bbbadc75d9333ae7302378b58a980d *man/tkRplot.Rd
+f5d6603f490b5ad925defaa388fc247d *man/tkRplot.Rd
+3e4e71539bb86f8bce1ee2ca90ad5898 *man/tkRplotR-package.Rd
