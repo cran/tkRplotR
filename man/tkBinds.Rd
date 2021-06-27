@@ -22,23 +22,23 @@ This function adds the binds needed to automatically resize the graph
 \examples{
 \dontshow{
 if (.isTclImgOk()){
-bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
 tt <- tkRplot(tt, function() {
+b <- .tcl2num(tkbb)
  x <- 1:20 / 20
    plot(
    x,
-   x ^ bb,
+   x ^ b,
    col = "#0000ff50",
        xlab = "x",
-           ylab = paste0("x^", bb),
+           ylab = paste0("x^", b),
                type = "l",
                    axes = FALSE,
                        lwd = 4)
-   title(main = bb)
+   title(main = b)
      points(x,
-      x ^ bb,
+      x ^ b,
       col = "#ff000050",
       pch = 19,
       cex = 2)
@@ -47,18 +47,9 @@ tt <- tkRplot(tt, function() {
           box()
           })
 
- f <- function(...) {
- b <- as.numeric(tclvalue(tkbb))
-   if (b != bb) {
-       bb <<- b
-           tkRreplot(tt)
-             }
-     }
-
      s <-
        tkscale(
        tt,
-       command = f,
        from = 0.05,
        to = 2.00,
        variable = tkbb,
@@ -83,23 +74,23 @@ tt <- tkRplot(tt, function() {
 }
 }
 \dontrun{
-bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
 tt <- tkRplot(tt, function() {
+b <- .tcl2num(tkbb)
  x <- 1:20 / 20
    plot(
    x,
-   x ^ bb,
+   x ^ b,
    col = "#0000ff50",
        xlab = "x",
-           ylab = paste0("x^", bb),
+           ylab = paste0("x^", b),
                type = "l",
                    axes = FALSE,
                        lwd = 4)
-   title(main = bb)
+   title(main = b)
      points(x,
-      x ^ bb,
+      x ^ b,
       col = "#ff000050",
       pch = 19,
       cex = 2)
@@ -108,18 +99,9 @@ tt <- tkRplot(tt, function() {
           box()
           })
 
- f <- function(...) {
- b <- as.numeric(tclvalue(tkbb))
-   if (b != bb) {
-       bb <<- b
-           tkRreplot(tt)
-             }
-     }
-
-     s <-
+       s <-
        tkscale(
        tt,
-       command = f,
        from = 0.05,
        to = 2.00,
        variable = tkbb,

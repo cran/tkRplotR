@@ -57,6 +57,19 @@
   return(selectedPngType)
 }
 
+#' @export
+.tcl2num <- function(x) {
+  as.numeric(unlist(strsplit(tclvalue(x), split = " ")))
+}
+#' @export
+.tcl2str <- function(x) {
+  toString(unlist(strsplit(tclvalue(x), split = " ")))
+}
+#' @export
+.tcl2String <- function(x) {
+  toString(tclvalue(x))
+}
+
 
 #' @import grDevices
 #' @import tcltk
@@ -103,11 +116,13 @@
 #' @export .tclFun0
 #'
 .tclFun0 <- function(f,
-                     name = deparse(substitute(f)))
+                      name = deparse(substitute(f)))
 {
+  name <- sub(".", 'dot_', name)
   name <- paste("R", make.names(name[1]), sep = "_")
   res <-
     paste(strsplit(.Tcl.callback(f), " ")[[1]][1:2], collapse = " ")
+
   if (length(grep("R_call ", res) > 0)) {
     .Tcl(paste("proc ",
                name,
@@ -124,8 +139,8 @@
                      name = deparse(substitute(f)),
                      arg1 = names(formals(f))[1])
 {
+  name <- sub(".", 'dot_', name)
   name <- paste("R", make.names(name[1]), sep = "_")
-
   #res <- .Tcl.callback(f)
   #res <- strtrim(res, 16)
   res <- paste(strsplit(.Tcl.callback(f), " ")[[1]][1:2], collapse = " ")
@@ -152,10 +167,8 @@
                      name = deparse(substitute(f)),
                      args = names(formals(f)))
 {
+  name <- sub(".", 'dot_', name)
   name <- paste("R", make.names(name[1]), sep = "_")
-
-  #res <- .Tcl.callback(f)
-  #res <- strtrim(res, 16)
   res <- paste(strsplit(.Tcl.callback(f), " ")[[1]][1:2], collapse = " ")
   if (length(grep("R_call ", res) > 0)) {
     .Tcl(paste(
@@ -174,7 +187,77 @@
   return(res)
 }
 
+#' @export
+.tclProcExist <- local({
+  .Tcl('proc ProcExists p {
+       return uplevel 1 [expr {[llength [info procs $p]] > 0}]
+}')
+     function(what) {
+       .Tcl(paste('ProcExists', what))
+       }
+  })
 
+#' @export
+# .tclTraceAddVariableWrite <- function(var, fun=.tclFun(.tkRreplot), args='', funName = deparse(substitute(fun))){
+#   IsFunction <- try(is.function(fun), silent = TRUE)
+#   if (IsFunction) {
+#     tclFun <- .tclFun(fun)
+#   } else{
+#     tclFun <- fun
+#   }
+#
+#   .Tcl(paste0('proc trace_', funName ,' {name element op} {
+# puts $arg
+#             # In case of array variable tracing, the "element" variable will specify the array index
+#             # For scalar variables, it will be empty
+#             if {$element != ""} {
+#             set name ${name}($element)
+#             }
+#             upvar $name x\n' , tclFun, '
+#             }
+#             # Adding tracing
+#             trace add variable ', var, ' { write } trace_', funName)
+#   )
+# }
+.tclTraceAddVariableWrite <- function(var, fun=.tkRreplot, arg='', funName = deparse(substitute(fun))){
+  IsFunction <- try(is.function(fun), silent = TRUE)
+  if (IsFunction) {
+    tclFun <- .tclFun(get(funName), name = funName)
+    funName <- sub(".", 'dot_', funName)
+    funName <- paste("R", make.names(funName[1]), sep = "_")
+  } else{
+    funName <- tclFun <- fun
+  }
+  #message(tclFun)
+  .Tcl(paste0('proc trace_', funName ,' {arg name element op} {
+              # puts "$arg $name $op $element"
+              # In case of array variable tracing, the "element" variable will specify the array index
+              # For scalar variables, it will be empty
+              if {$element != ""} {
+              set name ${name}($element)
+              }
+              upvar $name x
+              ' , funName, ' $arg
+}
+# Adding tracing
+trace add variable ', var, ' { write } "trace_', funName,' ', arg,'"')
+   )
+   }
+
+
+#' @export
+.addTraceTclVariables <- function(tt, tcl_vars = NULL) {
+  if (is.null(tcl_vars)) {
+    vars <- all.vars(body(tt$env$fun), functions = FALSE)
+    tcl_vars <- vars[which(lapply(vars, function(x) {
+      if (exists(x))
+        class(get(x))
+    }) == 'tclVar')]
+  }
+  tt$env$tclVars <- tcl_vars
+  invisible(lapply(tcl_vars, function(x)
+    .tclTraceAddVariableWrite(get(x), arg = tt)))
+}
 #' @export
 .getToplevelID <- function(win) {
   if (is.tkwin(win)) {
@@ -207,23 +290,23 @@
 #' @examples
 #' \dontshow{
 #' if (.isTclImgOk()){
-#' bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
 #' tt <- tkRplot(tt, function() {
+#' b <- .tcl2num(tkbb)
 #'  x <- 1:20 / 20
 #'    plot(
 #'    x,
-#'    x ^ bb,
+#'    x ^ b,
 #'    col = "#0000ff50",
 #'        xlab = "x",
-#'            ylab = paste0("x^", bb),
+#'            ylab = paste0("x^", b),
 #'                type = "l",
 #'                    axes = FALSE,
 #'                        lwd = 4)
-#'    title(main = bb)
+#'    title(main = b)
 #'      points(x,
-#'       x ^ bb,
+#'       x ^ b,
 #'       col = "#ff000050",
 #'       pch = 19,
 #'       cex = 2)
@@ -232,18 +315,9 @@
 #'           box()
 #'           })
 #'
-#'  f <- function(...) {
-#'  b <- as.numeric(tclvalue(tkbb))
-#'    if (b != bb) {
-#'        bb <<- b
-#'            tkRreplot(tt)
-#'              }
-#'      }
-#'
 #'      s <-
 #'        tkscale(
 #'        tt,
-#'        command = f,
 #'        from = 0.05,
 #'        to = 2.00,
 #'        variable = tkbb,
@@ -268,23 +342,23 @@
 #'}
 #' }
 #' \dontrun{
-#' bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
 #' tt <- tkRplot(tt, function() {
+#' b <- .tcl2num(tkbb)
 #'  x <- 1:20 / 20
 #'    plot(
 #'    x,
-#'    x ^ bb,
+#'    x ^ b,
 #'    col = "#0000ff50",
 #'        xlab = "x",
-#'            ylab = paste0("x^", bb),
+#'            ylab = paste0("x^", b),
 #'                type = "l",
 #'                    axes = FALSE,
 #'                        lwd = 4)
-#'    title(main = bb)
+#'    title(main = b)
 #'      points(x,
-#'       x ^ bb,
+#'       x ^ b,
 #'       col = "#ff000050",
 #'       pch = 19,
 #'       cex = 2)
@@ -293,18 +367,9 @@
 #'           box()
 #'           })
 #'
-#'  f <- function(...) {
-#'  b <- as.numeric(tclvalue(tkbb))
-#'    if (b != bb) {
-#'        bb <<- b
-#'            tkRreplot(tt)
-#'              }
-#'      }
-#'
-#'      s <-
+#'        s <-
 #'        tkscale(
 #'        tt,
-#'        command = f,
 #'        from = 0.05,
 #'        to = 2.00,
 #'        variable = tkbb,
@@ -379,6 +444,9 @@ tkBinds <- function(parent,
     }
   })
 
+  tkbind(parent, "<Enter>", function(W) {
+    setVariable("tkRplotR_currentToplevel", W)
+  })
   tkbind(parent$env$canvas, "<Enter>", function(W) {
     setVariable("tkRplotR_currentToplevel", W)
     width <- as.numeric(.Tcl(paste("winfo width", W)))
@@ -639,10 +707,10 @@ getAllVariables <- function(all.names = TRUE){
 #' @examples
 #' \dontshow{
 #'  if (.isTclImgOk()){
-#'  bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
 #' tt <- tkRplot(tt, function() {
+#' bb <- .tcl2num(tkbb)
 #'  x <- 1:20 / 20
 #'    plot(
 #'    x,
@@ -664,18 +732,9 @@ getAllVariables <- function(all.names = TRUE){
 #'           box()
 #'           })
 #'
-#'  f <- function(...) {
-#'  b <- as.numeric(tclvalue(tkbb))
-#'    if (b != bb) {
-#'        bb <<- b
-#'            tkRreplot(tt)
-#'              }
-#'      }
-#'
 #'      s <-
 #'        tkscale(
 #'        tt,
-#'        command = f,
 #'        from = 0.05,
 #'        to = 2.00,
 #'        variable = tkbb,
@@ -695,6 +754,94 @@ getAllVariables <- function(all.names = TRUE){
 #'        }
 #' }
 #' \dontrun{
+#' #Example 1 without using tkReplot function (tkRplotR version > 0.1.6)
+#' tk_b <- tclVar(1)
+#' tk_x <- tclVar(10)
+#' tk_main <- tclVar('...')
+#'
+#' tt0 <- tktoplevel()
+#' tt0 <- tkRplot(tt0, function(...) {
+#' # get values of tclvariables
+#'   x <- .tcl2num(tk_x)
+#'   x <- 1:x
+#'   b <- .tcl2num(tk_b)
+#'   main <- .tcl2String(tk_main)
+#'
+#'   plot(
+#'     x,
+#'     x ^ b ,
+#'     col = "#0000ff50",
+#'     xlab = "x",
+#'     ylab = expression(x^b),
+#'     type = "l",
+#'     axes = FALSE,
+#'     lwd = 4)
+#'   title(main = main)
+#'   points(x,
+#'          x ^ b,
+#'          col = "#ff000050",
+#'          pch = 19,
+#'          cex = 2)
+#'   axis(1)
+#'   axis(2)
+#'   box()
+#' })
+#'
+#' s01 <- tkscale(
+#'   tt0,
+#'   #command = function(...) .tkRreplot(tt0),
+#'   from = 10,
+#'   to = 60,
+#'   label = 'x',
+#'   variable = tk_x,
+#'   showvalue = TRUE,
+#'   resolution = 1,
+#'   repeatdelay = 200,
+#'   repeatinterval = 100,
+#'   orient = "hor"
+#' )
+#'
+#' s02 <- tkscale(
+#'   tt0,
+#'   #command = function(...) .tkRreplot(tt0),
+#'   from = 0.05,
+#'   to = 2.00,
+#'   label = 'b',
+#'   variable = tk_b,
+#'   showvalue = TRUE,
+#'   resolution = 0.01,
+#'   repeatdelay = 200,
+#'   repeatinterval = 100,
+#'   orient = "ver"
+#' )
+#'
+#'
+#' e01 <- tkentry(tt0,
+#'               textvariable = tk_main,
+#'               validate = 'all', validatecommand="")
+#' tkpack(s02,
+#'        side = "left",
+#'        expand = FALSE,
+#'        #'anchor = "c",
+#'        before = tt0$env$canvas,
+#'        fill = "both")
+#'
+#' tkpack(s01,
+#'        side = "bottom",
+#'        expand = FALSE,
+#'        #'anchor = "c",
+#'        before = tt0$env$canvas,
+#'        fill = "both")
+#'
+#' tkpack(e01,
+#'        side = "top",
+#'        expand = FALSE,
+#'        #'anchor = "c",
+#'        before = tt0$env$canvas,
+#'        fill = "both")
+#'
+#'
+#' #Example 2 using tkReplot function (tkRplotR version < 0.1.7)
 #' bb <- 1
 #' tkbb <- tclVar(1)
 #' tt <- tktoplevel()
@@ -809,6 +956,7 @@ tkRplot <- function(W,
   tkBinds(W)
   #setCoef(W)
   .tkRreplot(W)
+  .addTraceTclVariables(W)
   invisible(W)
 }
 
@@ -820,8 +968,10 @@ tkRreplot <- function(W,
                       width,
                       height,
                       ...) {
-  if (missing(W))
+  if (missing(W)){
     W <- getVariable("tkRplotR_currentToplevel")
+   # message(W)
+    }
   parent <- .getToplevel(W)
   parentGeometry <-
     as.numeric(c(tclvalue(tkwinfo("width", parent)),
@@ -894,6 +1044,11 @@ tkRreplot <- function(W,
 #' @export
 ##### .tkRreplot #####
 .tkRreplot <- function(W) {
+  if (missing(W)) {
+    W <- getVariable("tkRplotR_currentToplevel")
+   # message(W)
+  }
+  W <- .getToplevelID(W)
   .Tcl("global tkRreplotRdoResize")
   if (tclvalue(.Tcl("info exists tkRreplotRdoResize")) == 1)
     .Tcl("after cancel $tkRreplotRdoResize")

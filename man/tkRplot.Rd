@@ -27,10 +27,10 @@ Displays a plot in a Tk toplevel window.
 \examples{
 \dontshow{
  if (.isTclImgOk()){
- bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
 tt <- tkRplot(tt, function() {
+bb <- .tcl2num(tkbb)
  x <- 1:20 / 20
    plot(
    x,
@@ -52,18 +52,9 @@ tt <- tkRplot(tt, function() {
           box()
           })
 
- f <- function(...) {
- b <- as.numeric(tclvalue(tkbb))
-   if (b != bb) {
-       bb <<- b
-           tkRreplot(tt)
-             }
-     }
-
      s <-
        tkscale(
        tt,
-       command = f,
        from = 0.05,
        to = 2.00,
        variable = tkbb,
@@ -83,6 +74,94 @@ tt <- tkRplot(tt, function() {
        }
 }
 \dontrun{
+#Example 1 without using tkReplot function (tkRplotR version > 0.1.6)
+tk_b <- tclVar(1)
+tk_x <- tclVar(10)
+tk_main <- tclVar('...')
+
+tt0 <- tktoplevel()
+tt0 <- tkRplot(tt0, function(...) {
+# get values of tclvariables
+  x <- .tcl2num(tk_x)
+  x <- 1:x
+  b <- .tcl2num(tk_b)
+  main <- .tcl2String(tk_main)
+
+  plot(
+    x,
+    x ^ b ,
+    col = "#0000ff50",
+    xlab = "x",
+    ylab = expression(x^b),
+    type = "l",
+    axes = FALSE,
+    lwd = 4)
+  title(main = main)
+  points(x,
+         x ^ b,
+         col = "#ff000050",
+         pch = 19,
+         cex = 2)
+  axis(1)
+  axis(2)
+  box()
+})
+
+s01 <- tkscale(
+  tt0,
+  #command = function(...) .tkRreplot(tt0),
+  from = 10,
+  to = 60,
+  label = 'x',
+  variable = tk_x,
+  showvalue = TRUE,
+  resolution = 1,
+  repeatdelay = 200,
+  repeatinterval = 100,
+  orient = "hor"
+)
+
+s02 <- tkscale(
+  tt0,
+  #command = function(...) .tkRreplot(tt0),
+  from = 0.05,
+  to = 2.00,
+  label = 'b',
+  variable = tk_b,
+  showvalue = TRUE,
+  resolution = 0.01,
+  repeatdelay = 200,
+  repeatinterval = 100,
+  orient = "ver"
+)
+
+
+e01 <- tkentry(tt0,
+              textvariable = tk_main,
+              validate = 'all', validatecommand="")
+tkpack(s02,
+       side = "left",
+       expand = FALSE,
+       #'anchor = "c",
+       before = tt0$env$canvas,
+       fill = "both")
+
+tkpack(s01,
+       side = "bottom",
+       expand = FALSE,
+       #'anchor = "c",
+       before = tt0$env$canvas,
+       fill = "both")
+
+tkpack(e01,
+       side = "top",
+       expand = FALSE,
+       #'anchor = "c",
+       before = tt0$env$canvas,
+       fill = "both")
+
+
+#Example 2 using tkReplot function (tkRplotR version < 0.1.7)
 bb <- 1
 tkbb <- tclVar(1)
 tt <- tktoplevel()
